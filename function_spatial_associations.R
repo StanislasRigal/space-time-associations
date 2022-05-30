@@ -20,7 +20,7 @@ randomizeM <- function(mat) {
 
 # Function used to present results
 
-```{r}
+
 tabularize <- function(coocmat, name = "assoc") { 
   # Zero-size matrix
   if(is.null(dim(coocmat))){return(NA)}
@@ -39,9 +39,9 @@ tabularize <- function(coocmat, name = "assoc") {
 
 # Function to calculate species associations
 
-```{r}
 
-g < -function(mat, # observed data
+
+main_fun_space <- function(mat, # observed data
             N.null, # number of null matrices to simulate
             occmin){ # minimum occurence number for a species to be selected
   
