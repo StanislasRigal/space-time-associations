@@ -45,7 +45,7 @@ source("function_spatial_associations.R")
 ```
 
 
-### Calculating species associations
+### Calculating species spatial associations
 
 Warning: it might take a while.
 
@@ -132,9 +132,41 @@ data_ts_ready <- merge(data_ts_0c, square_centroid[,c("code_square", "long", "la
 data_ts_ready <- ddply(data_ts_ready, .(code_square, zonebio, habit, code_sp), .fun=detrend_data)
 ```
 
+### Assess significance of temporal associations
+
+```{r}
+
+temporal_associations <- ddply(data_ts_ready, .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+
+temporal_associations1 <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="alpine",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+
+temporal_associations2a <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="A_1",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2b <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="A_3",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2c <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="D_1",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2d <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="D_2",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2e <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="D_3",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2f <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="D_4",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2g <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="E_1",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2h <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="E_2",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2i <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="E_3",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2j <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit=="F_1",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations2k <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="atlantic" & data_ts_ready$habit %in% c("A_2","B_1","B_2","B_3","C_1","C_2","C_4","D_5","G_1"),]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
 
 
+temporal_associations3a <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit=="A_1",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations3b <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit=="A_3",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations3c <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit=="D_1",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations3d <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit=="D_2",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations3e <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit=="D_3",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations3f <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit=="D_4",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations3g <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit=="E_3",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations3h <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit=="F_1",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+temporal_associations3i <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="continental" & data_ts_ready$habit %in% c("A_2","B_1","B_2","B_3","C_1","C_2","C_4","D_5","E_1"  "E_2","G_1"),]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
 
+temporal_associations4 <- ddply(droplevels(data_ts_ready[data_ts_ready$zonebio=="mediterranean",]), .(zonebio, habit), .fun=multisp_CCM, .progress="text")
+
+
+```
 
 
 
