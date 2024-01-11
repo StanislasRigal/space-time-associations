@@ -312,6 +312,10 @@ temporal_associations_signif <- merge(temporal_associations_signif,temporal_asso
 
 sp_tp_association <- merge(temporal_associations_signif, spatial_associations, by.x=c("habit","zonebio","spA","spB"), by.y=c("habit","zonebio","spi","spj"), all.x=T)
 
+# also available 
+
+sp_tp_association <- readRDS("output/sp_tp_association.rds")
+
 ```
 
 
@@ -456,7 +460,7 @@ habitat_dist_chi <- dudi.coa(habitat_dist_chi,scan=F)
 habitat_dist_chi <- dist.dudi(habitat_dist_chi)
 habitat_dist_chi <- tabularize(as.matrix(habitat_dist_chi))
 habitat_dist_chi$assoc <- 1-habitat_dist_chi$assoc
-names(habitat_dist_chi)[3]<-"dist"
+names(habitat_dist_chi)[3] <- "dist"
 ```
 
 ### Specialisation distance
@@ -500,10 +504,18 @@ names(association_distance)[which(names(association_distance)=="dSGI")] <- "spec
 association_distance <- merge(association_distance,habitat_dist_chi, by.x=c("spA","spB"), by.y=c("spi","spj"), all.x=T)
 association_distance$niche_overlap_distance <- -association_distance$dist
 association_distance$dist <- NULL
+
+# also available
+
+association_distance <- read.RDS("output/association_distance.rds")
+
 ```
 
 ### Combining species association by species pair
+
 ```{r}
+# plot by biogeography and habitat
+
 asso_to_plot <- association_distance
 asso_to_plot$spatial_asso_scaled <- scale(asso_to_plot$spatial_asso,center=F)
 asso_to_plot$temp_asso_scaled <- scale(asso_to_plot$temp_int2,center=F)
@@ -514,6 +526,43 @@ ggplot(droplevels(asso_to_plot), aes(x=spatial_asso_scaled, y=temp_asso_scaled))
   scale_x_continuous(name="Spatial associations (SES)", limits=c(-5,5))+
   scale_y_continuous(name="Temporal associations", limits=c(-5,5))+
   theme_classic() + theme(text=element_text(size=20),legend.position="none")
+
+# plot py unique species pairs
+  
+asso_to_plot_grouped <- data.frame(association_distance %>% group_by(spA, spB) %>% summarize(temp_asso_grouped = mean(temp_int2), spatial_asso_grouped = mean(spatial_asso, na.rm=TRUE)))
+asso_to_plot_grouped$spatial_asso_scaled <- scale(asso_to_plot_grouped$spatial_asso_grouped,center=F)
+asso_to_plot_grouped$temp_asso_scaled <- scale(asso_to_plot_grouped$temp_asso_grouped,center=F)
+
+ggplot(droplevels(asso_to_plot_grouped), aes(x=spatial_asso_scaled, y=temp_asso_scaled))+
+  geom_point(data=asso_to_plot_grouped,alpha=0.1,col="black")+
+  scale_color_viridis(alpha = 1, direction = 1,discrete = TRUE, option = "D")+
+  scale_x_continuous(name="Spatial associations (SES)", limits=c(-5,5))+
+  scale_y_continuous(name="Temporal associations", limits=c(-5,5))+
+  theme_classic() + theme(text=element_text(size=20),legend.position="none")
+  
+# plot with non significant species pairs
+
+pair_sp <- combn(levels(droplevels(dataprp$code_sp)),2)
+asso_to_plot_na <- data.frame(spA=pair_sp[1,],spB=pair_sp[2,])
+asso_to_plot_na <- merge(asso_to_plot_na, asso_to_plot_grouped[,c("spA","spB","temp_asso_grouped","spatial_asso_grouped")], by=c("spA","spB"), all.x=TRUE)
+asso_to_plot_na <- merge(asso_to_plot_na, asso_to_plot_grouped[,c("spA","spB","temp_asso_grouped","spatial_asso_grouped")], by.x=c("spA","spB"),by.y=c("spB","spA"), all.x=TRUE)
+asso_to_plot_na <- data.frame(asso_to_plot_na %>% replace(is.na(.), 0))
+
+asso_to_plot_na$temp_asso_grouped <- (asso_to_plot_na$temp_asso_grouped.x + asso_to_plot_na$temp_asso_grouped.y)/2
+asso_to_plot_na$spatial_asso_grouped <- (asso_to_plot_na$spatial_asso_grouped.x + asso_to_plot_na$spatial_asso_grouped.y)/2
+
+asso_to_plot_na$spatial_asso_grouped.x <- asso_to_plot_na$spatial_asso_grouped.y <- asso_to_plot_na$temp_asso_grouped.x <- asso_to_plot_na$temp_asso_grouped.y <- NULL
+
+asso_to_plot_na$spatial_asso_scaled <- scale(asso_to_plot_na$spatial_asso_grouped,center=F)
+asso_to_plot_na$temp_asso_scaled <- scale(asso_to_plot_na$temp_asso_grouped,center=F)
+
+ggplot(droplevels(asso_to_plot_na), aes(x=spatial_asso_scaled, y=temp_asso_scaled))+
+  geom_point(data=asso_to_plot_na,alpha=0.1,col="black")+
+  scale_color_viridis(alpha = 1, direction = 1,discrete = TRUE, option = "D")+
+  scale_x_continuous(name="Spatial associations (SES)", limits=c(-5,5))+
+  scale_y_continuous(name="Temporal associations", limits=c(-5,5))+
+  theme_classic() + theme(text=element_text(size=20),legend.position="none")
+
 ```
 
 
@@ -525,54 +574,66 @@ ggplot(droplevels(asso_to_plot), aes(x=spatial_asso_scaled, y=temp_asso_scaled))
 ### Preparing data
 
 ```{r}
-# remove data from time-series < 500 time steps
-data_asso_dist <- droplevels(association_distance)
-lev_sp_t <- unique(data_asso_dist$pair[!is.na(data_asso_dist$spatial_asso)])
 
-# save information about combination with association or no association
-num_not_zero <- which(!is.na(data_asso_dist$temp_asso2) & data_asso_dist$spatial_asso2!=0)
-num_zero <- which(is.na(data_asso_dist$temp_asso2) | data_asso_dist$spatial_asso2==0)
-num_not_zero2 <- which(!is.na(data_asso_dist$temp_asso2))
-num_zero2 <- which(is.na(data_asso_dist$temp_asso2))
-num_not_zero2b <- which(data_asso_dist$spatial_asso2!=0)
-num_zero2b <- which(data_asso_dist$spatial_asso2==0)
+data_asso_dist <- droplevels(asso_to_plot_na[,c("spA","spB","temp_asso_grouped","spatial_asso_grouped")])
 
-# add small variation around zero and select only part of the dataset to allow broom::tidy to work
-data_asso_dist$temp_asso2_save<-data_asso_dist$temp_asso2
-data_asso_dist$spatial_asso2_save<-data_asso_dist$spatial_asso2
-data_asso_dist$temp_asso2[num_zero]<-0+runif(length(data_asso_dist$temp_asso2[num_zero]),min=-0.0001,max=0.0001)
-data_asso_dist$spatial_asso2[num_zero]<-0+runif(length(data_asso_dist$temp_asso2[num_zero]),min=-0.0001,max=0.0001)
-data_asso_dist$temp_asso2_save[num_zero2]<-0+runif(length(data_asso_dist$temp_asso2[num_zero2]),min=-0.0001,max=0.0001)
-data_asso_dist$spatial_asso2[num_zero2b]<-0+runif(length(data_asso_dist$temp_asso2[num_zero2b]),min=-0.0001,max=0.0001)
-set.seed(1) 
-num_zero3<-sample(num_zero,5000)
-data_asso_dist2<-data_asso_dist[c(num_not_zero,num_zero3),]
+data_asso_dist <- merge(data_asso_dist,coph.dist2[,c("distance","sp1","sp2")], by.x=c("spA","spB"), by.y=c("sp1","sp2"), all.x=T)
+data_asso_dist <- merge(data_asso_dist,coph.dist2[,c("distance","sp1","sp2")], by.x=c("spA","spB"), by.y=c("sp2","sp1"), all.x=T)
+data_asso_dist$functional_distance <- rep(NA, nrow(data_asso_dist))
+data_asso_dist$functional_distance[!is.na(data_asso_dist$distance.x)] <- data_asso_dist$distance.x[!is.na(data_asso_dist$distance.x)]
+data_asso_dist$functional_distance[!is.na(data_asso_dist$distance.y)] <- data_asso_dist$distance.y[!is.na(data_asso_dist$distance.y)]
+data_asso_dist$distance.x <- data_asso_dist$distance.y <- NULL
+
+data_asso_dist <- merge(data_asso_dist,d[,c("distance2","spi2","spj2")], by.x=c("spA","spB"), by.y=c("spi2","spj2"), all.x=T)
+names(data_asso_dist)[which(names(data_asso_dist)=="distance2")] <- "phylogenetic_distance"
+data_asso_dist$phylogenetic_distance[which(is.na(data_asso_dist$phylogenetic_distance))] <- 0
+
+data_asso_dist <- merge(data_asso_dist,specialisation_dist[,c("dSGI","spi","spj")], by.x=c("spA","spB"), by.y=c("spi","spj"), all.x=T)
+names(data_asso_dist)[which(names(data_asso_dist)=="dSGI")] <- "specialisation_distance"
+
+data_asso_dist <- merge(data_asso_dist,habitat_dist_chi, by.x=c("spA","spB"), by.y=c("spi","spj"), all.x=T)
+data_asso_dist$niche_overlap_distance <- -data_asso_dist$dist
+data_asso_dist$dist <- NULL
+
+data_asso_dist_all <- data_asso_dist
+
+set.seed(123)
+num_zero <- which(data_asso_dist$temp_asso_grouped == 0)
+num_zero2 <- which(data_asso_dist$spatial_asso_grouped == 0)
+num_not_zero <- which(data_asso_dist$temp_asso_grouped != 0 & data_asso_dist$spatial_asso_grouped != 0)
+data_asso_dist$temp_asso_grouped[num_zero]<-0+runif(length(data_asso_dist$temp_asso_grouped[num_zero]),min=-0.0001,max=0.0001)
+data_asso_dist$spatial_asso_grouped[num_zero2]<-0+runif(length(data_asso_dist$spatial_asso_grouped[num_zero2]),min=-0.0001,max=0.0001)
+num_zero3 <- sample(num_zero,5000)
+data_asso_dist <- data_asso_dist[c(num_not_zero,num_zero3),]
+
 ```
 
 ### Functional distance (and other niche distances)
-```{r}
-# quantile regression for spatial_asso2 and functional_distance
-Quantr<-rq(data=droplevels(data_asso_dist2),
-           tau= seq(0.01,0.99, by=0.01),
-           formula = spatial_asso2 ~  functional_distance) # or phylogenetic_distance, specialisation_distance, niche_overlap_distance
-sum_rq<-summary(Quantr)
-plot(sum_rq, ols=FALSE)
-qr_spatial_asso_functional_distance<-broom::tidy(Quantr,se.type = "boot")
-qr_spatial_asso_functional_distance<-droplevels(subset(qr_spatial_asso_functional_distance, term=="functional_distance"))
 
-# quantile regression for temp_asso2 and functional_distance
-Quantr<-rq(data=droplevels(data_asso_dist2),
-           tau= seq(0.01,0.99, by=0.01),
-           formula = temp_asso2 ~  functional_distance) # or phylogenetic_distance, specialisation_distance, niche_overlap_distance
-sum_rq<-summary(Quantr)
+```{r}
+# quantile regression for spatial_asso_grouped and functional_distance
+Quantr <- rq(data = data_asso_dist,
+           tau = seq(0.01,0.99, by=0.01),
+           formula = spatial_asso_grouped ~  functional_distance) # or phylogenetic_distance, specialisation_distance, niche_overlap_distance
+sum_rq <- summary(Quantr)
 plot(sum_rq, ols=FALSE)
-qr_temp_asso_functional_distance<-broom::tidy(Quantr,se.type = "boot")
-qr_temp_asso_functional_distance<-droplevels(subset(qr_temp_asso_functional_distance, term=="functional_distance"))
+qr_spatial_asso_functional_distance <- broom::tidy(Quantr,se.type = "boot")
+qr_spatial_asso_functional_distance <- droplevels(subset(qr_spatial_asso_functional_distance, term=="functional_distance"))
+
+# quantile regression for temp_asso_grouped and functional_distance
+Quantr <- rq(data = droplevels(data_asso_dist),
+           tau= seq(0.01,0.99, by=0.01),
+           formula = temp_asso_grouped ~  functional_distance) # or phylogenetic_distance, specialisation_distance, niche_overlap_distance
+sum_rq <- summary(Quantr)
+plot(sum_rq, ols=FALSE)
+qr_temp_asso_functional_distance <- broom::tidy(Quantr,se.type = "boot")
+qr_temp_asso_functional_distance <- droplevels(subset(qr_temp_asso_functional_distance, term=="functional_distance"))
 
 # plot quantile regression
 
-to_plot_functional_distance<-data.frame(functional_distance=data_asso_dist2$functional_distance[], spatial_asso=scale(data_asso_dist2$spatial_asso2, center=F), temp_asso=scale(data_asso_dist2$temp_asso2, center=F))
-to_plot_functional_distance<-melt(to_plot_functional_distance, id.vars="functional_distance")
+to_plot_functional_distance <- data.frame(functional_distance=data_asso_dist$functional_distance[], spatial_asso=scale(data_asso_dist$spatial_asso_grouped, center=F), temp_asso=scale(data_asso_dist$temp_asso_grouped, center=F))
+to_plot_functional_distance <- melt(to_plot_functional_distance, id.vars="functional_distance")
+
 ggplot(droplevels(to_plot_functional_distance), aes(x=functional_distance, y=value, group=variable))+
   geom_point(aes(col=variable),size=1, alpha=0.5) +
   geom_quantile(quantiles=c(0.01,0.99), formula=y ~ x, aes(col=variable)) +
@@ -581,15 +642,16 @@ ggplot(droplevels(to_plot_functional_distance), aes(x=functional_distance, y=val
   geom_smooth(method='lm', formula= y ~ 0, colour="blue", se=FALSE, linetype="11") +
   theme_modern()+theme(legend.position = c(0.8,0.9), legend.title = element_blank())
 
-to_plot_functional_distance2a<-data.frame(tau=as.data.frame(qr_spatial_asso_functional_distance)$tau,
+to_plot_functional_distance2a <- data.frame(tau=as.data.frame(qr_spatial_asso_functional_distance)$tau,
                                   value=scale(as.data.frame(qr_spatial_asso_functional_distance)$estimate, center=F),
                                   sd_value=max(abs(scale(as.data.frame(qr_spatial_asso_functional_distance)$estimate, center=F)))/max(abs(as.data.frame(qr_spatial_asso_functional_distance)$estimate))*as.data.frame(qr_spatial_asso_functional_distance)$std.error,
                                   gr="spatial_asso")
-to_plot_functional_distance2b<-data.frame(tau=as.data.frame(qr_temp_asso_functional_distance)$tau,
+to_plot_functional_distance2b <- data.frame(tau=as.data.frame(qr_temp_asso_functional_distance)$tau,
                                   value=scale(as.data.frame(qr_temp_asso_functional_distance)$estimate, center=F),
                                   sd_value=max(abs(scale(as.data.frame(qr_temp_asso_functional_distance)$estimate, center=F)))/max(abs(as.data.frame(qr_temp_asso_functional_distance)$estimate))*as.data.frame(qr_temp_asso_functional_distance)$std.error,
                                   gr="int")
-to_plot_functional_distance2<-rbind(to_plot_functional_distance2a,to_plot_functional_distance2b)
+to_plot_functional_distance2 <- rbind(to_plot_functional_distance2a,to_plot_functional_distance2b)
+
 ggplot(droplevels(to_plot_functional_distance2), aes(x=tau, y=value, group=gr))+
   geom_point(aes(col=gr),size=1, alpha=0.5) +
   geom_line(aes(col=gr),size = 1)+ 
@@ -601,77 +663,747 @@ ggplot(droplevels(to_plot_functional_distance2), aes(x=tau, y=value, group=gr))+
   theme_modern()+theme(legend.position = c(0.8,0.9), legend.title = element_blank())
 ```
 
-## For associations significant either in space or in time
 
-### Functional distance (and other niche distances)
+
+# More assocations in potential interacting species
+
+### Prepare data
 
 ```{r}
-# select only part of the dataset to allow broom::tidy to work
-set.seed(1)
-num_zero4<-sample(num_zero2,5000)
-data_asso_functional_distance<-data_asso_dist[c(num_not_zero2,num_zero4),]
 
-set.seed(1)
-num_not_zero4b<-sample(num_not_zero2b,5000)
-data_asso_dist4<-data_asso_dist[c(num_not_zero4b),]
+data_interaction_possible <- data_asso_dist_all
 
-# quantile regression for spatial_asso2 and functional_distance
+# add main habitat of species to control
 
-Quantr<-rq(data=droplevels(data_asso_dist4),
-           tau= seq(0.01,0.99, by=0.01),
-           formula = spatial_asso2_save ~  functional_distance) # or phylogenetic_distance, specialisation_distance, niche_overlap_distance
-sum_rq<-summary(Quantr)
-plot(sum_rq, ols=FALSE)
-qr_spatial_asso_functional_distance_tot<-broom::tidy(Quantr,se.type = "boot")
-qr_spatial_asso_functional_distance_tot<-droplevels(subset(qr_spatial_asso_functional_distance_tot, term=="functional_distance"))
+max_habitat_sp <- data.frame(habitat_sp %>% group_by(code_sp) %>% slice(which.max(freq)))
 
-# quantile regression for temp_asso2 and functional_distance
-Quantr<-rq(data=droplevels(data_asso_functional_distance),
-           tau= seq(0.01,0.99, by=0.01),
-           formula = temp_asso2_save ~  functional_distance) # or phylogenetic_distance, specialisation_distance, niche_overlap_distance
-sum_rq<-summary(Quantr)
-plot(sum_rq, ols=FALSE)
-qr_temp_asso_functional_distance_tot<-broom::tidy(Quantr,se.type = "boot")
-qr_temp_asso_functional_distance_tot<-droplevels(subset(qr_temp_asso_functional_distance_tot, term=="functional_distance"))
+data_interaction_possible <- merge(data_interaction_possible, max_habitat_sp[,c("code_sp","habit")], by.x="spA", by.y="code_sp", all.x=TRUE)
+names(data_interaction_possible)[which(names(data_interaction_possible)=="habit")] <- "habitatA"
+data_interaction_possible <- merge(data_interaction_possible, max_habitat_sp[,c("code_sp","habit")], by.x="spB", by.y="code_sp", all.x=TRUE)
+names(data_interaction_possible)[which(names(data_interaction_possible)=="habit")] <- "habitatB"
 
-to_plot_functional_distance_tota<-data.frame(functional_distance=data_asso_dist4$functional_distance[], value=scale(data_asso_dist4$spatial_asso2_save, center=F), variable="ses")
-to_plot_functional_distance_totb<-data.frame(functional_distance=data_asso_functional_distance$functional_distance[], value=scale(data_asso_functional_distance$temp_asso2_save, center=F), variable="interaction")
-to_plot_functional_distance_tot<-rbind(to_plot_functional_distance_tota,to_plot_functional_distance_totb)
+# add nest type
 
-ggplot(droplevels(to_plot_functional_distance_tot), aes(x=functional_distance, y=value, group=variable))+
-  geom_point(aes(col=variable),size=1, alpha=0.5) +
-  geom_quantile(quantiles=c(0.01,0.99), formula=y ~ x, aes(col=variable)) +
-  scale_color_viridis(alpha = 1, direction = 1,discrete = TRUE, option = "D", label=c("Spatial associations","Temporal associations"))+
-  labs(y="Associations", x = "Functional distance")+
-  geom_smooth(method='lm', formula= y ~ 0, colour="blue", se=FALSE, linetype="11") +
-  theme_modern()+theme(legend.position = c(0.8,0.9), legend.title = element_blank())
+data_interaction_possible <- merge(data_interaction_possible, mat.trait[,c("code_sp","Nest.type")], by.x="spA", by.y="code_sp", all.x=TRUE)
+names(data_interaction_possible)[which(names(data_interaction_possible)=="Nest.type")] <- "NestA"
+data_interaction_possible <- merge(data_interaction_possible, mat.trait[,c("code_sp","Nest.type")], by.x="spB", by.y="code_sp", all.x=TRUE)
+names(data_interaction_possible)[which(names(data_interaction_possible)=="Nest.type")] <- "NestB"
 
-to_plot_functional_distance_tot2a<-data.frame(tau=as.data.frame(qr_spatial_asso_functional_distance_tot)$tau,
-                                      value=scale(as.data.frame(qr_spatial_asso_functional_distance_tot)$estimate, center=F),
-                                      sd_value=max(abs(scale(as.data.frame(qr_spatial_asso_functional_distance_tot)$estimate, center=F)))/max(abs(as.data.frame(qr_spatial_asso_functional_distance_tot)$estimate))*as.data.frame(qr_spatial_asso_functional_distance_tot)$std.error,
-                                      gr="ses")
-to_plot_functional_distance_tot2b<-data.frame(tau=as.data.frame(qr_temp_asso_functional_distance_tot)$tau,
-                                      value=scale(as.data.frame(qr_temp_asso_functional_distance_tot)$estimate, center=F),
-                                      sd_value=max(abs(scale(as.data.frame(qr_temp_asso_functional_distance_tot)$estimate, center=F)))/max(abs(as.data.frame(qr_temp_asso_functional_distance_tot)$estimate))*as.data.frame(qr_temp_asso_functional_distance_tot)$std.error,
-                                      gr="int")
-to_plot_functional_distance_tot2<-rbind(to_plot_functional_distance_tot2a,to_plot_functional_distance_tot2b)
-ggplot(droplevels(to_plot_functional_distance_tot2), aes(x=tau, y=value, group=gr))+
-  geom_point(aes(col=gr),size=1, alpha=0.5) +
-  geom_line(aes(col=gr),size = 1)+ 
-  scale_color_viridis(alpha = 1, direction = 1,discrete = TRUE, option = "D", label=c("Spatial associations","Temporal associations"))+
-  geom_smooth(method='lm', formula= y ~ 0, colour="blue", se=FALSE, linetype="11")+
-  labs(y="Quantile regression")+
-  geom_ribbon(aes(ymin=value-sd_value*1.96,ymax=value+sd_value*1.96, fill=gr),alpha=0.25)+
-  scale_fill_viridis(alpha = 1, direction = 1,discrete = TRUE, option = "D", label=c("Spatial associations","Temporal associations"))+
-  theme_modern()+theme(legend.position = c(0.8,0.9), legend.title = element_blank())
+# add similar diet
+
+mat_trait_food <- mat.trait[,c("Folivore_B","Frugivore_B","Granivore_B","Arthropods_B","Other.invertebrates_B","Fish_B","Other.vertebrates_B","Carrion_B","Omnivore_B")]
+
+mat_trait_food <- apply(mat_trait_food,2,as.numeric)
+
+mat_dist_food <- daisy(mat_trait_food, metric="euclidean")
+attr(mat_dist_food, "Labels") <- mat.trait$code_sp
+
+mat_dist_food2 <- data.frame(t(combn(attr(mat_dist_food, "Labels"),2)), as.numeric(mat_dist_food))
+names(mat_dist_food2) <- c("spA","spB","food_dist")
+mat_dist_food2$food_eq <- ifelse(mat_dist_food2$food_dist==0,1,0)
+
+data_interaction_possible <- merge(data_interaction_possible, mat_dist_food2, by.x=c("spA","spB"), by.y=c("spA","spB"), all.x=TRUE)
+data_interaction_possible <- merge(data_interaction_possible, mat_dist_food2, by.x=c("spA","spB"), by.y=c("spB","spA"), all.x=TRUE)
+data_interaction_possible$food_dist.x[which(is.na(data_interaction_possible$food_dist.x))] <- data_interaction_possible$food_dist.y[which(is.na(data_interaction_possible$food_dist.x))]
+data_interaction_possible$food_eq.x[which(is.na(data_interaction_possible$food_eq.x))] <- data_interaction_possible$food_eq.y[which(is.na(data_interaction_possible$food_eq.x))]
+
+data_interaction_possible$food_eq.y <- data_interaction_possible$food_dist.y <- NULL
+
+names(data_interaction_possible)[which(names(data_interaction_possible)=="food_dist.x")] <- "food_dist"
+names(data_interaction_possible)[which(names(data_interaction_possible)=="food_eq.x")] <- "same_food"
+
+# finalise data preparation 
+
+data_interaction_possible$obs_temp_asso <- ifelse(data_interaction_possible$temp_asso_grouped != 0, 1, 0)
+data_interaction_possible$obs_asso <- ifelse(data_interaction_possible$temp_asso_grouped != 0 & data_interaction_possible$spatial_asso_grouped != 0, 1, 0)
+
+data_interaction_possible$same_habitat <- ifelse(data_interaction_possible$habitatA == data_interaction_possible$habitatB,1,0)
+
+data_interaction_possible$same_nest <- ifelse(data_interaction_possible$NestA == data_interaction_possible$NestB,1,0)
+
+# also available
+
+data_interaction_possible <- readRDS("output/data_interaction_possible.rds")
+
+```
+
+### Model
+
+```{r}
+
+mod1 <- glm(obs_temp_asso ~ same_habitat + same_nest + same_food, data=data_interaction_possible, family = binomial)
+summary(mod1)
+
+mod2 <- glm(obs_temp_asso ~ same_nest + same_food, data=data_interaction_possible[which(data_interaction_possible$same_habitat==1),], family = binomial)
+summary(mod2)
+
+```
+### Function to calculate metrics of species association networks
+
+```{r}
+library(rnetcarto)
+
+x <- droplevels(dataprp[which(dataprp$code_point==unique(dataprp$code_point)[10] & dataprp$year == 2008),])
+
+community_nb_link <- function(x){
+  
+  # calculate indices for the observed data
+  
+  b <- levels(droplevels(x$code_sp))
+  
+  datasso <- data_interaction_possible[which(data_interaction_possible$spA %in% b & data_interaction_possible$spB %in% b),c("spA","spB","obs_temp_asso")]
+  
+  adj_mat <- datasso
+  for(i in 1:length(b)){
+    adj_mat <- rbind(adj_mat, data.frame(spA=b[i],spB=b[i],obs_temp_asso=0))
+  }
+  adj_mat <- dcast(adj_mat, spA ~ spB, value.var="obs_temp_asso")
+  row.names(adj_mat) <- adj_mat$spA
+  adj_mat$spA <- NULL
+  
+  # degree ditribution
+  
+  adj_mat[lower.tri(adj_mat)] <- t(adj_mat)[lower.tri(adj_mat)]
+  data_names <- data.frame(t(setNames(rep(0,length(unique(dataprp$code_sp))), sort(unique(dataprp$code_sp)))))
+  deg_dist <- data.frame(t(apply(adj_mat,1,sum)))
+  deg_dist <- rbind.fill(data_names,deg_dist)[2,]
+  
+  # modularity
+  
+  adj_mat[lower.tri(adj_mat)] <- 0
+  modularity <- netcarto(as.matrix(adj_mat))
+  
+  # connectance
+  
+  connectance <- sum(datasso$obs_temp_asso)/nrow(datasso)
+
+result <- cbind(data.frame(nb_association = sum(datasso$obs_temp_asso), # total number of observed associations
+                     nb_sp = length(b), # total number of species
+                     nb_asso_pot = nrow(datasso), # total number of potential association
+                     connectance = connectance,
+                     modularity = modularity[[2]]),
+                     deg_dist)
+return(result)
+}
+
+community_nb_link2 <- function(x){tryCatch(community_nb_link(x),
+                                         error=function(e) cbind(data.frame(nb_association = NA,
+                                         nb_sp = NA,
+                                         nb_asso_pot = NA,
+                                         connectance = NA,
+                                         modularity = NA)),
+                                         data.frame(t(setNames(rep(NA,length(unique(dataprp$code_sp))), sort(unique(dataprp$code_sp))))))}
+                                         
+                                         
+```
+
+### Precess function and add additional data
+
+```{r}
+
+network_structure_square <- ddply(droplevels(dataprp), .(code_square, year), .fun=community_nb_link2, .parallel =F, .progress = "text")
+
+network_structure_square <- merge(network_structure_square, square_centroid, by="code_square", all.x=T)
+
+habitat_square <- as.data.frame(dataprp %>% group_by(code_square, code_point, habit) %>% summarize(count1=n()))
+habitat_square <- as.data.frame(habitat_square %>% group_by(code_square, habit) %>% summarize(count=n()))
+max_habitat_square <- data.frame(habitat_square %>% group_by(code_square) %>% slice(which.max(count)))
+
+max_habitat_square$habitat <- NA
+max_habitat_square$habitat[which(max_habitat_square$habit %in% c("A_1","A_2","A_3"))] <- "Forest"
+max_habitat_square$habitat[which(max_habitat_square$habit %in% c("B_1","B_2","B_3","C_1","C_2","C_4","F_1","G_1"))] <- "Natural openland"
+max_habitat_square$habitat[which(max_habitat_square$habit %in% c("D_1","D_2","D_3","D_4","D_5"))] <- "Farmland"
+max_habitat_square$habitat[which(max_habitat_square$habit %in% c("E_1","E_2","E_3"))] <- "Urban"
+
+network_structure_square <- merge(network_structure_square, max_habitat_square[,c("code_square","habitat")], by="code_square", all.x=T)
+
+```
+
+### Degree ditribution
+
+```{r}
+# Simson evenness
+
+data_deg_dist <- network_structure_square[, c(sort(levels(dataprp$code_sp)),"nb_association")]
+
+data_deg_dist2 <- apply(data_deg_dist, 1, FUN=function(x){
+x_freq <- x[1:length(unique(dataprp$code_sp))]/x[length(x)]
+x2 <- sum(na.omit(x_freq)*na.omit(x_freq))
+simson_D <- 1/x2
+D_max <- x[length(x)]
+simson_E <- simson_D/D_max
+simson_E_min <- 1/D_max
+return(data.frame(simson_E,simson_E_min))
+})
+
+data_deg_dist2 <- data.frame(t(sapply(data_deg_dist2,c)))
+
+network_structure_square <- cbind(network_structure_square,data_deg_dist2)
+network_structure_square$simson_E <- as.numeric(network_structure_square$simson_E)
+network_structure_square$simson_E_min <- as.numeric(network_structure_square$simson_E_min)
+
+# degree distribution
+
+data_deg_dist3 <- apply(data_deg_dist, 1, FUN=function(x){
+vec <- na.omit(x[1:length(unique(dataprp$code_sp))])
+vec_scale <- as.numeric((vec - min(vec)) / (max(vec) - min(vec)))
+return(vec_scale)
+})
+
+test <- unlist(data_deg_dist3[which(network_structure_square$year==2002)])
+test <- unlist(data_deg_dist3[which(network_structure_square$year==2017)])
+
+```
+
+Model network dynamics
+
+```{r}
+mod_connectance_time <- gamm(connectance~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square, random = list(code_square=~1))
+summary(mod_connectance_time$gam)
+
+mod_asso_obs_time <- gamm(nb_association~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square, random = list(code_square=~1))
+summary(mod_asso_obs_time$gam)
+
+mod_modularity_time <- gamm(modularity~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square, random = list(code_square=~1))
+summary(mod_modularity_time$gam)
+
+mod_evenness_time <- gamm(simson_E~year+simson_E_min+te(lon2,lat2,bs="tp",k=3), data=network_structure_square, random = list(code_square=~1))
+summary(mod_evenness_time$gam)
+
+mod_species_time <- gamm(nb_sp~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square, random = list(code_square=~1))
+summary(mod_species_time$gam)
+
+```
+
+# Differences in network structure 
+
+```{r}
+
+# network structure on average in 2001
+
+## nb_sp
+nb_sp_2001 <- summary(mod_species_time$gam)$p.coef[2]*2001 + summary(mod_species_time$gam)$p.coef[1]
+nb_sp_2001_up <- (summary(mod_species_time$gam)$p.coef[2]-1.96*summary(mod_species_time$gam)$se[2])*2001 + summary(mod_species_time$gam)$p.coef[1]+1.96*summary(mod_species_time$gam)$se[1]
+nb_sp_2001_low <- (summary(mod_species_time$gam)$p.coef[2]+1.96*summary(mod_species_time$gam)$se[2])*2001 + summary(mod_species_time$gam)$p.coef[1]-1.96*summary(mod_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_2001 <- summary(mod_asso_obs_time$gam)$p.coef[2]*2001 + summary(mod_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_2001_up <- (summary(mod_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_asso_obs_time$gam)$se[2])*2001 + summary(mod_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_asso_obs_time$gam)$se[1]
+nb_asso_obs_2001_low <- (summary(mod_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_asso_obs_time$gam)$se[2])*2001 + summary(mod_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_2001 <- summary(mod_connectance_time$gam)$p.coef[2]*2001 + summary(mod_connectance_time$gam)$p.coef[1]
+connectance_2001_up <- (summary(mod_connectance_time$gam)$p.coef[2]-1.96*summary(mod_connectance_time$gam)$se[2])*2001 + summary(mod_connectance_time$gam)$p.coef[1]+1.96*summary(mod_connectance_time$gam)$se[1]
+connectance_2001_low <- (summary(mod_connectance_time$gam)$p.coef[2]+1.96*summary(mod_connectance_time$gam)$se[2])*2001 + summary(mod_connectance_time$gam)$p.coef[1]-1.96*summary(mod_connectance_time$gam)$se[1]
+
+## modularity
+modularity_2001 <- summary(mod_modularity_time$gam)$p.coef[2]*2001 + summary(mod_modularity_time$gam)$p.coef[1]
+modularity_2001_up <- (summary(mod_modularity_time$gam)$p.coef[2]-1.96*summary(mod_modularity_time$gam)$se[2])*2001 + summary(mod_modularity_time$gam)$p.coef[1]+1.96*summary(mod_modularity_time$gam)$se[1]
+modularity_2001_low <- (summary(mod_modularity_time$gam)$p.coef[2]+1.96*summary(mod_modularity_time$gam)$se[2])*2001 + summary(mod_modularity_time$gam)$p.coef[1]-1.96*summary(mod_modularity_time$gam)$se[1]
+
+## evenness
+evenness_2001 <- summary(mod_evenness_time$gam)$p.coef[2]*2001 + summary(mod_evenness_time$gam)$p.coef[1]
+evenness_2001_up <- (summary(mod_evenness_time$gam)$p.coef[2]-1.96*summary(mod_evenness_time$gam)$se[2])*2001 + summary(mod_evenness_time$gam)$p.coef[1]+1.96*summary(mod_evenness_time$gam)$se[1]
+evenness_2001_low <- (summary(mod_evenness_time$gam)$p.coef[2]+1.96*summary(mod_evenness_time$gam)$se[2])*2001 + summary(mod_evenness_time$gam)$p.coef[1]-1.96*summary(mod_evenness_time$gam)$se[1]
+
+### example 
+network_structure_square[which(network_structure_square$nb_sp %in% c(31,32) & network_structure_square$connectance <= 0.452 & network_structure_square$connectance >= 0.447 & network_structure_square$modularity <= 0.101 & network_structure_square$modularity >= 0.0986 & network_structure_square$simson_E < 0.029),]
+
+# network structure on average in 2017
+
+## nb_sp
+nb_sp_2017 <- summary(mod_species_time$gam)$p.coef[2]*2017 + summary(mod_species_time$gam)$p.coef[1]
+nb_sp_2017_up <- (summary(mod_species_time$gam)$p.coef[2]-1.96*summary(mod_species_time$gam)$se[2])*2017 + summary(mod_species_time$gam)$p.coef[1]+1.96*summary(mod_species_time$gam)$se[1]
+nb_sp_2017_low <- (summary(mod_species_time$gam)$p.coef[2]+1.96*summary(mod_species_time$gam)$se[2])*2017 + summary(mod_species_time$gam)$p.coef[1]-1.96*summary(mod_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_2017 <- summary(mod_asso_obs_time$gam)$p.coef[2]*2017 + summary(mod_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_2017_up <- (summary(mod_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_asso_obs_time$gam)$se[2])*2017 + summary(mod_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_asso_obs_time$gam)$se[1]
+nb_asso_obs_2017_low <- (summary(mod_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_asso_obs_time$gam)$se[2])*2017 + summary(mod_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_2017 <- summary(mod_connectance_time$gam)$p.coef[2]*2017 + summary(mod_connectance_time$gam)$p.coef[1]
+connectance_2017_up <- (summary(mod_connectance_time$gam)$p.coef[2]-1.96*summary(mod_connectance_time$gam)$se[2])*2017 + summary(mod_connectance_time$gam)$p.coef[1]+1.96*summary(mod_connectance_time$gam)$se[1]
+connectance_2017_low <- (summary(mod_connectance_time$gam)$p.coef[2]+1.96*summary(mod_connectance_time$gam)$se[2])*2017 + summary(mod_connectance_time$gam)$p.coef[1]-1.96*summary(mod_connectance_time$gam)$se[1]
+
+## modularity
+modularity_2017 <- summary(mod_modularity_time$gam)$p.coef[2]*2017 + summary(mod_modularity_time$gam)$p.coef[1]
+modularity_2017_up <- (summary(mod_modularity_time$gam)$p.coef[2]-1.96*summary(mod_modularity_time$gam)$se[2])*2017 + summary(mod_modularity_time$gam)$p.coef[1]+1.96*summary(mod_modularity_time$gam)$se[1]
+modularity_2017_low <- (summary(mod_modularity_time$gam)$p.coef[2]+1.96*summary(mod_modularity_time$gam)$se[2])*2017 + summary(mod_modularity_time$gam)$p.coef[1]-1.96*summary(mod_modularity_time$gam)$se[1]
+
+## evenness
+evenness_2017 <- summary(mod_evenness_time$gam)$p.coef[2]*2017 + summary(mod_evenness_time$gam)$p.coef[1]
+evenness_2017_up <- (summary(mod_evenness_time$gam)$p.coef[2]-1.96*summary(mod_evenness_time$gam)$se[2])*2017 + summary(mod_evenness_time$gam)$p.coef[1]+1.96*summary(mod_evenness_time$gam)$se[1]
+evenness_2017_low <- (summary(mod_evenness_time$gam)$p.coef[2]+1.96*summary(mod_evenness_time$gam)$se[2])*2017 + summary(mod_evenness_time$gam)$p.coef[1]-1.96*summary(mod_evenness_time$gam)$se[1]
+
+### example 
+network_structure_square[which(network_structure_square$nb_sp %in% c(29,30) & network_structure_square$connectance <= 0.48 & network_structure_square$connectance >= 0.475 & network_structure_square$modularity <= 0.095 & network_structure_square$modularity >= 0.093 & network_structure_square$simson_E < 0.0299),]
+
 ```
 
 
+# Differences in network structure by habitat
+
+### Farmland
+
+```{r}
+
+# models for farmland
+
+mod_farmland_connectance_time <- gamm(connectance~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Farmland"),], random = list(code_square=~1))
+summary(mod_farmland_connectance_time$gam)
+
+mod_farmland_asso_obs_time <- gamm(nb_association~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Farmland"),], random = list(code_square=~1))
+summary(mod_farmland_asso_obs_time$gam)
+
+mod_farmland_modularity_time <- gamm(modularity~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Farmland"),], random = list(code_square=~1))
+summary(mod_farmland_modularity_time$gam)
+
+mod_farmland_evenness_time <- gamm(simson_E~year+simson_E_min+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Farmland"),], random = list(code_square=~1))
+summary(mod_farmland_evenness_time$gam)
+
+mod_farmland_species_time <- gamm(nb_sp~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Farmland"),], random = list(code_square=~1))
+summary(mod_farmland_species_time$gam)
+
+# network structure on average in 2001 in farmland
+
+## nb_sp
+nb_sp_farmland_2001 <- summary(mod_farmland_species_time$gam)$p.coef[2]*2001 + summary(mod_farmland_species_time$gam)$p.coef[1]
+nb_sp_farmland_2001_up <- (summary(mod_farmland_species_time$gam)$p.coef[2]-1.96*summary(mod_farmland_species_time$gam)$se[2])*2001 + summary(mod_farmland_species_time$gam)$p.coef[1]+1.96*summary(mod_farmland_species_time$gam)$se[1]
+nb_sp_farmland_2001_low <- (summary(mod_farmland_species_time$gam)$p.coef[2]+1.96*summary(mod_farmland_species_time$gam)$se[2])*2001 + summary(mod_farmland_species_time$gam)$p.coef[1]-1.96*summary(mod_farmland_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_farmland_2001 <- summary(mod_farmland_asso_obs_time$gam)$p.coef[2]*2001 + summary(mod_farmland_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_farmland_2001_up <- (summary(mod_farmland_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_farmland_asso_obs_time$gam)$se[2])*2001 + summary(mod_farmland_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_farmland_asso_obs_time$gam)$se[1]
+nb_asso_obs_farmland_2001_low <- (summary(mod_farmland_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_farmland_asso_obs_time$gam)$se[2])*2001 + summary(mod_farmland_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_farmland_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_farmland_2001 <- summary(mod_farmland_connectance_time$gam)$p.coef[2]*2001 + summary(mod_farmland_connectance_time$gam)$p.coef[1]
+connectance_farmland_2001_up <- (summary(mod_farmland_connectance_time$gam)$p.coef[2]-1.96*summary(mod_farmland_connectance_time$gam)$se[2])*2001 + summary(mod_farmland_connectance_time$gam)$p.coef[1]+1.96*summary(mod_farmland_connectance_time$gam)$se[1]
+connectance_farmland_2001_low <- (summary(mod_farmland_connectance_time$gam)$p.coef[2]+1.96*summary(mod_farmland_connectance_time$gam)$se[2])*2001 + summary(mod_farmland_connectance_time$gam)$p.coef[1]-1.96*summary(mod_farmland_connectance_time$gam)$se[1]
+
+## modularity
+modularity_farmland_2001 <- summary(mod_farmland_modularity_time$gam)$p.coef[2]*2001 + summary(mod_farmland_modularity_time$gam)$p.coef[1]
+modularity_farmland_2001_up <- (summary(mod_farmland_modularity_time$gam)$p.coef[2]-1.96*summary(mod_farmland_modularity_time$gam)$se[2])*2001 + summary(mod_farmland_modularity_time$gam)$p.coef[1]+1.96*summary(mod_farmland_modularity_time$gam)$se[1]
+modularity_farmland_2001_low <- (summary(mod_farmland_modularity_time$gam)$p.coef[2]+1.96*summary(mod_farmland_modularity_time$gam)$se[2])*2001 + summary(mod_farmland_modularity_time$gam)$p.coef[1]-1.96*summary(mod_farmland_modularity_time$gam)$se[1]
+
+## evenness
+evenness_farmland_2001 <- summary(mod_farmland_evenness_time$gam)$p.coef[2]*2001 + summary(mod_farmland_evenness_time$gam)$p.coef[1]
+evenness_farmland_2001_up <- (summary(mod_farmland_evenness_time$gam)$p.coef[2]-1.96*summary(mod_farmland_evenness_time$gam)$se[2])*2001 + summary(mod_farmland_evenness_time$gam)$p.coef[1]+1.96*summary(mod_farmland_evenness_time$gam)$se[1]
+evenness_farmland_2001_low <- (summary(mod_farmland_evenness_time$gam)$p.coef[2]+1.96*summary(mod_farmland_evenness_time$gam)$se[2])*2001 + summary(mod_farmland_evenness_time$gam)$p.coef[1]-1.96*summary(mod_farmland_evenness_time$gam)$se[1]
+
+### example 
+
+
+# network structure on average in 2017 in farmland
+
+## nb_sp
+nb_sp_farmland_2017 <- summary(mod_farmland_species_time$gam)$p.coef[2]*2017 + summary(mod_farmland_species_time$gam)$p.coef[1]
+nb_sp_farmland_2017_up <- (summary(mod_farmland_species_time$gam)$p.coef[2]-1.96*summary(mod_farmland_species_time$gam)$se[2])*2017 + summary(mod_farmland_species_time$gam)$p.coef[1]+1.96*summary(mod_farmland_species_time$gam)$se[1]
+nb_sp_farmland_2017_low <- (summary(mod_farmland_species_time$gam)$p.coef[2]+1.96*summary(mod_farmland_species_time$gam)$se[2])*2017 + summary(mod_farmland_species_time$gam)$p.coef[1]-1.96*summary(mod_farmland_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_farmland_2017 <- summary(mod_farmland_asso_obs_time$gam)$p.coef[2]*2017 + summary(mod_farmland_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_farmland_2017_up <- (summary(mod_farmland_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_farmland_asso_obs_time$gam)$se[2])*2017 + summary(mod_farmland_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_farmland_asso_obs_time$gam)$se[1]
+nb_asso_obs_farmland_2017_low <- (summary(mod_farmland_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_farmland_asso_obs_time$gam)$se[2])*2017 + summary(mod_farmland_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_farmland_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_farmland_2017 <- summary(mod_farmland_connectance_time$gam)$p.coef[2]*2017 + summary(mod_farmland_connectance_time$gam)$p.coef[1]
+connectance_farmland_2017_up <- (summary(mod_farmland_connectance_time$gam)$p.coef[2]-1.96*summary(mod_farmland_connectance_time$gam)$se[2])*2017 + summary(mod_farmland_connectance_time$gam)$p.coef[1]+1.96*summary(mod_farmland_connectance_time$gam)$se[1]
+connectance_farmland_2017_low <- (summary(mod_farmland_connectance_time$gam)$p.coef[2]+1.96*summary(mod_farmland_connectance_time$gam)$se[2])*2017 + summary(mod_farmland_connectance_time$gam)$p.coef[1]-1.96*summary(mod_farmland_connectance_time$gam)$se[1]
+
+## modularity
+modularity_farmland_2017 <- summary(mod_farmland_modularity_time$gam)$p.coef[2]*2017 + summary(mod_farmland_modularity_time$gam)$p.coef[1]
+modularity_farmland_2017_up <- (summary(mod_farmland_modularity_time$gam)$p.coef[2]-1.96*summary(mod_farmland_modularity_time$gam)$se[2])*2017 + summary(mod_farmland_modularity_time$gam)$p.coef[1]+1.96*summary(mod_farmland_modularity_time$gam)$se[1]
+modularity_farmland_2017_low <- (summary(mod_farmland_modularity_time$gam)$p.coef[2]+1.96*summary(mod_farmland_modularity_time$gam)$se[2])*2017 + summary(mod_farmland_modularity_time$gam)$p.coef[1]-1.96*summary(mod_farmland_modularity_time$gam)$se[1]
+
+## evenness
+evenness_farmland_2017 <- summary(mod_farmland_evenness_time$gam)$p.coef[2]*2017 + summary(mod_farmland_evenness_time$gam)$p.coef[1]
+evenness_farmland_2017_up <- (summary(mod_farmland_evenness_time$gam)$p.coef[2]-1.96*summary(mod_farmland_evenness_time$gam)$se[2])*2017 + summary(mod_farmland_evenness_time$gam)$p.coef[1]+1.96*summary(mod_farmland_evenness_time$gam)$se[1]
+evenness_farmland_2017_low <- (summary(mod_farmland_evenness_time$gam)$p.coef[2]+1.96*summary(mod_farmland_evenness_time$gam)$se[2])*2017 + summary(mod_farmland_evenness_time$gam)$p.coef[1]-1.96*summary(mod_farmland_evenness_time$gam)$se[1]
+
+### example 
+
+```
+
+### Forest
+
+```{r}
+
+# models for forest
+
+mod_forest_connectance_time <- gamm(connectance~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Forest"),], random = list(code_square=~1))
+summary(mod_forest_connectance_time$gam)
+
+mod_forest_asso_obs_time <- gamm(nb_association~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Forest"),], random = list(code_square=~1))
+summary(mod_forest_asso_obs_time$gam)
+
+mod_forest_modularity_time <- gamm(modularity~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Forest"),], random = list(code_square=~1))
+summary(mod_forest_modularity_time$gam)
+
+mod_forest_evenness_time <- gamm(simson_E~year+simson_E_min+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Forest"),], random = list(code_square=~1))
+summary(mod_forest_evenness_time$gam)
+
+mod_forest_species_time <- gamm(nb_sp~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Forest"),], random = list(code_square=~1))
+summary(mod_forest_species_time$gam)
+
+# network structure on average in 2001 in forest
+
+## nb_sp
+nb_sp_forest_2001 <- summary(mod_forest_species_time$gam)$p.coef[2]*2001 + summary(mod_forest_species_time$gam)$p.coef[1]
+nb_sp_forest_2001_up <- (summary(mod_forest_species_time$gam)$p.coef[2]-1.96*summary(mod_forest_species_time$gam)$se[2])*2001 + summary(mod_forest_species_time$gam)$p.coef[1]+1.96*summary(mod_forest_species_time$gam)$se[1]
+nb_sp_forest_2001_low <- (summary(mod_forest_species_time$gam)$p.coef[2]+1.96*summary(mod_forest_species_time$gam)$se[2])*2001 + summary(mod_forest_species_time$gam)$p.coef[1]-1.96*summary(mod_forest_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_forest_2001 <- summary(mod_forest_asso_obs_time$gam)$p.coef[2]*2001 + summary(mod_forest_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_forest_2001_up <- (summary(mod_forest_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_forest_asso_obs_time$gam)$se[2])*2001 + summary(mod_forest_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_forest_asso_obs_time$gam)$se[1]
+nb_asso_obs_forest_2001_low <- (summary(mod_forest_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_forest_asso_obs_time$gam)$se[2])*2001 + summary(mod_forest_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_forest_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_forest_2001 <- summary(mod_forest_connectance_time$gam)$p.coef[2]*2001 + summary(mod_forest_connectance_time$gam)$p.coef[1]
+connectance_forest_2001_up <- (summary(mod_forest_connectance_time$gam)$p.coef[2]-1.96*summary(mod_forest_connectance_time$gam)$se[2])*2001 + summary(mod_forest_connectance_time$gam)$p.coef[1]+1.96*summary(mod_forest_connectance_time$gam)$se[1]
+connectance_forest_2001_low <- (summary(mod_forest_connectance_time$gam)$p.coef[2]+1.96*summary(mod_forest_connectance_time$gam)$se[2])*2001 + summary(mod_forest_connectance_time$gam)$p.coef[1]-1.96*summary(mod_forest_connectance_time$gam)$se[1]
+
+## modularity
+modularity_forest_2001 <- summary(mod_forest_modularity_time$gam)$p.coef[2]*2001 + summary(mod_forest_modularity_time$gam)$p.coef[1]
+modularity_forest_2001_up <- (summary(mod_forest_modularity_time$gam)$p.coef[2]-1.96*summary(mod_forest_modularity_time$gam)$se[2])*2001 + summary(mod_forest_modularity_time$gam)$p.coef[1]+1.96*summary(mod_forest_modularity_time$gam)$se[1]
+modularity_forest_2001_low <- (summary(mod_forest_modularity_time$gam)$p.coef[2]+1.96*summary(mod_forest_modularity_time$gam)$se[2])*2001 + summary(mod_forest_modularity_time$gam)$p.coef[1]-1.96*summary(mod_forest_modularity_time$gam)$se[1]
+
+## evenness
+evenness_forest_2001 <- summary(mod_forest_evenness_time$gam)$p.coef[2]*2001 + summary(mod_forest_evenness_time$gam)$p.coef[1]
+evenness_forest_2001_up <- (summary(mod_forest_evenness_time$gam)$p.coef[2]-1.96*summary(mod_forest_evenness_time$gam)$se[2])*2001 + summary(mod_forest_evenness_time$gam)$p.coef[1]+1.96*summary(mod_forest_evenness_time$gam)$se[1]
+evenness_forest_2001_low <- (summary(mod_forest_evenness_time$gam)$p.coef[2]+1.96*summary(mod_forest_evenness_time$gam)$se[2])*2001 + summary(mod_forest_evenness_time$gam)$p.coef[1]-1.96*summary(mod_forest_evenness_time$gam)$se[1]
+
+### example 
+
+
+# network structure on average in 2017 in forest
+
+## nb_sp
+nb_sp_forest_2017 <- summary(mod_forest_species_time$gam)$p.coef[2]*2017 + summary(mod_forest_species_time$gam)$p.coef[1]
+nb_sp_forest_2017_up <- (summary(mod_forest_species_time$gam)$p.coef[2]-1.96*summary(mod_forest_species_time$gam)$se[2])*2017 + summary(mod_forest_species_time$gam)$p.coef[1]+1.96*summary(mod_forest_species_time$gam)$se[1]
+nb_sp_forest_2017_low <- (summary(mod_forest_species_time$gam)$p.coef[2]+1.96*summary(mod_forest_species_time$gam)$se[2])*2017 + summary(mod_forest_species_time$gam)$p.coef[1]-1.96*summary(mod_forest_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_forest_2017 <- summary(mod_forest_asso_obs_time$gam)$p.coef[2]*2017 + summary(mod_forest_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_forest_2017_up <- (summary(mod_forest_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_forest_asso_obs_time$gam)$se[2])*2017 + summary(mod_forest_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_forest_asso_obs_time$gam)$se[1]
+nb_asso_obs_forest_2017_low <- (summary(mod_forest_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_forest_asso_obs_time$gam)$se[2])*2017 + summary(mod_forest_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_forest_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_forest_2017 <- summary(mod_forest_connectance_time$gam)$p.coef[2]*2017 + summary(mod_forest_connectance_time$gam)$p.coef[1]
+connectance_forest_2017_up <- (summary(mod_forest_connectance_time$gam)$p.coef[2]-1.96*summary(mod_forest_connectance_time$gam)$se[2])*2017 + summary(mod_forest_connectance_time$gam)$p.coef[1]+1.96*summary(mod_forest_connectance_time$gam)$se[1]
+connectance_forest_2017_low <- (summary(mod_forest_connectance_time$gam)$p.coef[2]+1.96*summary(mod_forest_connectance_time$gam)$se[2])*2017 + summary(mod_forest_connectance_time$gam)$p.coef[1]-1.96*summary(mod_forest_connectance_time$gam)$se[1]
+
+## modularity
+modularity_forest_2017 <- summary(mod_forest_modularity_time$gam)$p.coef[2]*2017 + summary(mod_forest_modularity_time$gam)$p.coef[1]
+modularity_forest_2017_up <- (summary(mod_forest_modularity_time$gam)$p.coef[2]-1.96*summary(mod_forest_modularity_time$gam)$se[2])*2017 + summary(mod_forest_modularity_time$gam)$p.coef[1]+1.96*summary(mod_forest_modularity_time$gam)$se[1]
+modularity_forest_2017_low <- (summary(mod_forest_modularity_time$gam)$p.coef[2]+1.96*summary(mod_forest_modularity_time$gam)$se[2])*2017 + summary(mod_forest_modularity_time$gam)$p.coef[1]-1.96*summary(mod_forest_modularity_time$gam)$se[1]
+
+## evenness
+evenness_forest_2017 <- summary(mod_forest_evenness_time$gam)$p.coef[2]*2017 + summary(mod_forest_evenness_time$gam)$p.coef[1]
+evenness_forest_2017_up <- (summary(mod_forest_evenness_time$gam)$p.coef[2]-1.96*summary(mod_forest_evenness_time$gam)$se[2])*2017 + summary(mod_forest_evenness_time$gam)$p.coef[1]+1.96*summary(mod_forest_evenness_time$gam)$se[1]
+evenness_forest_2017_low <- (summary(mod_forest_evenness_time$gam)$p.coef[2]+1.96*summary(mod_forest_evenness_time$gam)$se[2])*2017 + summary(mod_forest_evenness_time$gam)$p.coef[1]-1.96*summary(mod_forest_evenness_time$gam)$se[1]
+
+### example 
+
+```
+
+### Urban
+
+```{r}
+
+# models for urban
+
+mod_urban_connectance_time <- gamm(connectance~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Urban"),], random = list(code_square=~1))
+summary(mod_urban_connectance_time$gam)
+
+mod_urban_asso_obs_time <- gamm(nb_association~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Urban"),], random = list(code_square=~1))
+summary(mod_urban_asso_obs_time$gam)
+
+mod_urban_modularity_time <- gamm(modularity~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Urban"),], random = list(code_square=~1))
+summary(mod_urban_modularity_time$gam)
+
+mod_urban_evenness_time <- gamm(simson_E~year+simson_E_min+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Urban"),], random = list(code_square=~1))
+summary(mod_urban_evenness_time$gam)
+
+mod_urban_species_time <- gamm(nb_sp~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Urban"),], random = list(code_square=~1))
+summary(mod_urban_species_time$gam)
+
+# network structure on average in 2001 in urban
+
+## nb_sp
+nb_sp_urban_2001 <- summary(mod_urban_species_time$gam)$p.coef[2]*2001 + summary(mod_urban_species_time$gam)$p.coef[1]
+nb_sp_urban_2001_up <- (summary(mod_urban_species_time$gam)$p.coef[2]-1.96*summary(mod_urban_species_time$gam)$se[2])*2001 + summary(mod_urban_species_time$gam)$p.coef[1]+1.96*summary(mod_urban_species_time$gam)$se[1]
+nb_sp_urban_2001_low <- (summary(mod_urban_species_time$gam)$p.coef[2]+1.96*summary(mod_urban_species_time$gam)$se[2])*2001 + summary(mod_urban_species_time$gam)$p.coef[1]-1.96*summary(mod_urban_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_urban_2001 <- summary(mod_urban_asso_obs_time$gam)$p.coef[2]*2001 + summary(mod_urban_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_urban_2001_up <- (summary(mod_urban_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_urban_asso_obs_time$gam)$se[2])*2001 + summary(mod_urban_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_urban_asso_obs_time$gam)$se[1]
+nb_asso_obs_urban_2001_low <- (summary(mod_urban_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_urban_asso_obs_time$gam)$se[2])*2001 + summary(mod_urban_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_urban_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_urban_2001 <- summary(mod_urban_connectance_time$gam)$p.coef[2]*2001 + summary(mod_urban_connectance_time$gam)$p.coef[1]
+connectance_urban_2001_up <- (summary(mod_urban_connectance_time$gam)$p.coef[2]-1.96*summary(mod_urban_connectance_time$gam)$se[2])*2001 + summary(mod_urban_connectance_time$gam)$p.coef[1]+1.96*summary(mod_urban_connectance_time$gam)$se[1]
+connectance_urban_2001_low <- (summary(mod_urban_connectance_time$gam)$p.coef[2]+1.96*summary(mod_urban_connectance_time$gam)$se[2])*2001 + summary(mod_urban_connectance_time$gam)$p.coef[1]-1.96*summary(mod_urban_connectance_time$gam)$se[1]
+
+## modularity
+modularity_urban_2001 <- summary(mod_urban_modularity_time$gam)$p.coef[2]*2001 + summary(mod_urban_modularity_time$gam)$p.coef[1]
+modularity_urban_2001_up <- (summary(mod_urban_modularity_time$gam)$p.coef[2]-1.96*summary(mod_urban_modularity_time$gam)$se[2])*2001 + summary(mod_urban_modularity_time$gam)$p.coef[1]+1.96*summary(mod_urban_modularity_time$gam)$se[1]
+modularity_urban_2001_low <- (summary(mod_urban_modularity_time$gam)$p.coef[2]+1.96*summary(mod_urban_modularity_time$gam)$se[2])*2001 + summary(mod_urban_modularity_time$gam)$p.coef[1]-1.96*summary(mod_urban_modularity_time$gam)$se[1]
+
+## evenness
+evenness_urban_2001 <- summary(mod_urban_evenness_time$gam)$p.coef[2]*2001 + summary(mod_urban_evenness_time$gam)$p.coef[1]
+evenness_urban_2001_up <- (summary(mod_urban_evenness_time$gam)$p.coef[2]-1.96*summary(mod_urban_evenness_time$gam)$se[2])*2001 + summary(mod_urban_evenness_time$gam)$p.coef[1]+1.96*summary(mod_urban_evenness_time$gam)$se[1]
+evenness_urban_2001_low <- (summary(mod_urban_evenness_time$gam)$p.coef[2]+1.96*summary(mod_urban_evenness_time$gam)$se[2])*2001 + summary(mod_urban_evenness_time$gam)$p.coef[1]-1.96*summary(mod_urban_evenness_time$gam)$se[1]
+
+### example 
+
+
+# network structure on average in 2017 in urban
+
+## nb_sp
+nb_sp_urban_2017 <- summary(mod_urban_species_time$gam)$p.coef[2]*2017 + summary(mod_urban_species_time$gam)$p.coef[1]
+nb_sp_urban_2017_up <- (summary(mod_urban_species_time$gam)$p.coef[2]-1.96*summary(mod_urban_species_time$gam)$se[2])*2017 + summary(mod_urban_species_time$gam)$p.coef[1]+1.96*summary(mod_urban_species_time$gam)$se[1]
+nb_sp_urban_2017_low <- (summary(mod_urban_species_time$gam)$p.coef[2]+1.96*summary(mod_urban_species_time$gam)$se[2])*2017 + summary(mod_urban_species_time$gam)$p.coef[1]-1.96*summary(mod_urban_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_urban_2017 <- summary(mod_urban_asso_obs_time$gam)$p.coef[2]*2017 + summary(mod_urban_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_urban_2017_up <- (summary(mod_urban_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_urban_asso_obs_time$gam)$se[2])*2017 + summary(mod_urban_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_urban_asso_obs_time$gam)$se[1]
+nb_asso_obs_urban_2017_low <- (summary(mod_urban_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_urban_asso_obs_time$gam)$se[2])*2017 + summary(mod_urban_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_urban_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_urban_2017 <- summary(mod_urban_connectance_time$gam)$p.coef[2]*2017 + summary(mod_urban_connectance_time$gam)$p.coef[1]
+connectance_urban_2017_up <- (summary(mod_urban_connectance_time$gam)$p.coef[2]-1.96*summary(mod_urban_connectance_time$gam)$se[2])*2017 + summary(mod_urban_connectance_time$gam)$p.coef[1]+1.96*summary(mod_urban_connectance_time$gam)$se[1]
+connectance_urban_2017_low <- (summary(mod_urban_connectance_time$gam)$p.coef[2]+1.96*summary(mod_urban_connectance_time$gam)$se[2])*2017 + summary(mod_urban_connectance_time$gam)$p.coef[1]-1.96*summary(mod_urban_connectance_time$gam)$se[1]
+
+## modularity
+modularity_urban_2017 <- summary(mod_urban_modularity_time$gam)$p.coef[2]*2017 + summary(mod_urban_modularity_time$gam)$p.coef[1]
+modularity_urban_2017_up <- (summary(mod_urban_modularity_time$gam)$p.coef[2]-1.96*summary(mod_urban_modularity_time$gam)$se[2])*2017 + summary(mod_urban_modularity_time$gam)$p.coef[1]+1.96*summary(mod_urban_modularity_time$gam)$se[1]
+modularity_urban_2017_low <- (summary(mod_urban_modularity_time$gam)$p.coef[2]+1.96*summary(mod_urban_modularity_time$gam)$se[2])*2017 + summary(mod_urban_modularity_time$gam)$p.coef[1]-1.96*summary(mod_urban_modularity_time$gam)$se[1]
+
+## evenness
+evenness_urban_2017 <- summary(mod_urban_evenness_time$gam)$p.coef[2]*2017 + summary(mod_urban_evenness_time$gam)$p.coef[1]
+evenness_urban_2017_up <- (summary(mod_urban_evenness_time$gam)$p.coef[2]-1.96*summary(mod_urban_evenness_time$gam)$se[2])*2017 + summary(mod_urban_evenness_time$gam)$p.coef[1]+1.96*summary(mod_urban_evenness_time$gam)$se[1]
+evenness_urban_2017_low <- (summary(mod_urban_evenness_time$gam)$p.coef[2]+1.96*summary(mod_urban_evenness_time$gam)$se[2])*2017 + summary(mod_urban_evenness_time$gam)$p.coef[1]-1.96*summary(mod_urban_evenness_time$gam)$se[1]
+
+### example 
+
+```
+
+### Farmland
+
+```{r}
+
+# models for natural_openland
+
+mod_natural_openland_connectance_time <- gamm(connectance~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Natural openland"),], random = list(code_square=~1))
+summary(mod_natural_openland_connectance_time$gam)
+
+mod_natural_openland_asso_obs_time <- gamm(nb_association~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Natural openland"),], random = list(code_square=~1))
+summary(mod_natural_openland_asso_obs_time$gam)
+
+mod_natural_openland_modularity_time <- gamm(modularity~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Natural openland"),], random = list(code_square=~1))
+summary(mod_natural_openland_modularity_time$gam)
+
+mod_natural_openland_evenness_time <- gamm(simson_E~year+simson_E_min+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Natural openland"),], random = list(code_square=~1))
+summary(mod_natural_openland_evenness_time$gam)
+
+mod_natural_openland_species_time <- gamm(nb_sp~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square[which(network_structure_square$habitat=="Natural openland"),], random = list(code_square=~1))
+summary(mod_natural_openland_species_time$gam)
+
+# network structure on average in 2001 in natural_openland
+
+## nb_sp
+nb_sp_natural_openland_2001 <- summary(mod_natural_openland_species_time$gam)$p.coef[2]*2001 + summary(mod_natural_openland_species_time$gam)$p.coef[1]
+nb_sp_natural_openland_2001_up <- (summary(mod_natural_openland_species_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_species_time$gam)$se[2])*2001 + summary(mod_natural_openland_species_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_species_time$gam)$se[1]
+nb_sp_natural_openland_2001_low <- (summary(mod_natural_openland_species_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_species_time$gam)$se[2])*2001 + summary(mod_natural_openland_species_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_natural_openland_2001 <- summary(mod_natural_openland_asso_obs_time$gam)$p.coef[2]*2001 + summary(mod_natural_openland_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_natural_openland_2001_up <- (summary(mod_natural_openland_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_asso_obs_time$gam)$se[2])*2001 + summary(mod_natural_openland_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_asso_obs_time$gam)$se[1]
+nb_asso_obs_natural_openland_2001_low <- (summary(mod_natural_openland_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_asso_obs_time$gam)$se[2])*2001 + summary(mod_natural_openland_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_natural_openland_2001 <- summary(mod_natural_openland_connectance_time$gam)$p.coef[2]*2001 + summary(mod_natural_openland_connectance_time$gam)$p.coef[1]
+connectance_natural_openland_2001_up <- (summary(mod_natural_openland_connectance_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_connectance_time$gam)$se[2])*2001 + summary(mod_natural_openland_connectance_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_connectance_time$gam)$se[1]
+connectance_natural_openland_2001_low <- (summary(mod_natural_openland_connectance_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_connectance_time$gam)$se[2])*2001 + summary(mod_natural_openland_connectance_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_connectance_time$gam)$se[1]
+
+## modularity
+modularity_natural_openland_2001 <- summary(mod_natural_openland_modularity_time$gam)$p.coef[2]*2001 + summary(mod_natural_openland_modularity_time$gam)$p.coef[1]
+modularity_natural_openland_2001_up <- (summary(mod_natural_openland_modularity_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_modularity_time$gam)$se[2])*2001 + summary(mod_natural_openland_modularity_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_modularity_time$gam)$se[1]
+modularity_natural_openland_2001_low <- (summary(mod_natural_openland_modularity_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_modularity_time$gam)$se[2])*2001 + summary(mod_natural_openland_modularity_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_modularity_time$gam)$se[1]
+
+## evenness
+evenness_natural_openland_2001 <- summary(mod_natural_openland_evenness_time$gam)$p.coef[2]*2001 + summary(mod_natural_openland_evenness_time$gam)$p.coef[1]
+evenness_natural_openland_2001_up <- (summary(mod_natural_openland_evenness_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_evenness_time$gam)$se[2])*2001 + summary(mod_natural_openland_evenness_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_evenness_time$gam)$se[1]
+evenness_natural_openland_2001_low <- (summary(mod_natural_openland_evenness_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_evenness_time$gam)$se[2])*2001 + summary(mod_natural_openland_evenness_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_evenness_time$gam)$se[1]
+
+### example 
+
+
+# network structure on average in 2017 in natural_openland
+
+## nb_sp
+nb_sp_natural_openland_2017 <- summary(mod_natural_openland_species_time$gam)$p.coef[2]*2017 + summary(mod_natural_openland_species_time$gam)$p.coef[1]
+nb_sp_natural_openland_2017_up <- (summary(mod_natural_openland_species_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_species_time$gam)$se[2])*2017 + summary(mod_natural_openland_species_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_species_time$gam)$se[1]
+nb_sp_natural_openland_2017_low <- (summary(mod_natural_openland_species_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_species_time$gam)$se[2])*2017 + summary(mod_natural_openland_species_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_species_time$gam)$se[1]
+
+## nb_association
+nb_asso_obs_natural_openland_2017 <- summary(mod_natural_openland_asso_obs_time$gam)$p.coef[2]*2017 + summary(mod_natural_openland_asso_obs_time$gam)$p.coef[1]
+nb_asso_obs_natural_openland_2017_up <- (summary(mod_natural_openland_asso_obs_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_asso_obs_time$gam)$se[2])*2017 + summary(mod_natural_openland_asso_obs_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_asso_obs_time$gam)$se[1]
+nb_asso_obs_natural_openland_2017_low <- (summary(mod_natural_openland_asso_obs_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_asso_obs_time$gam)$se[2])*2017 + summary(mod_natural_openland_asso_obs_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_asso_obs_time$gam)$se[1]
+
+## connectance
+connectance_natural_openland_2017 <- summary(mod_natural_openland_connectance_time$gam)$p.coef[2]*2017 + summary(mod_natural_openland_connectance_time$gam)$p.coef[1]
+connectance_natural_openland_2017_up <- (summary(mod_natural_openland_connectance_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_connectance_time$gam)$se[2])*2017 + summary(mod_natural_openland_connectance_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_connectance_time$gam)$se[1]
+connectance_natural_openland_2017_low <- (summary(mod_natural_openland_connectance_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_connectance_time$gam)$se[2])*2017 + summary(mod_natural_openland_connectance_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_connectance_time$gam)$se[1]
+
+## modularity
+modularity_natural_openland_2017 <- summary(mod_natural_openland_modularity_time$gam)$p.coef[2]*2017 + summary(mod_natural_openland_modularity_time$gam)$p.coef[1]
+modularity_natural_openland_2017_up <- (summary(mod_natural_openland_modularity_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_modularity_time$gam)$se[2])*2017 + summary(mod_natural_openland_modularity_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_modularity_time$gam)$se[1]
+modularity_natural_openland_2017_low <- (summary(mod_natural_openland_modularity_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_modularity_time$gam)$se[2])*2017 + summary(mod_natural_openland_modularity_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_modularity_time$gam)$se[1]
+
+## evenness
+evenness_natural_openland_2017 <- summary(mod_natural_openland_evenness_time$gam)$p.coef[2]*2017 + summary(mod_natural_openland_evenness_time$gam)$p.coef[1]
+evenness_natural_openland_2017_up <- (summary(mod_natural_openland_evenness_time$gam)$p.coef[2]-1.96*summary(mod_natural_openland_evenness_time$gam)$se[2])*2017 + summary(mod_natural_openland_evenness_time$gam)$p.coef[1]+1.96*summary(mod_natural_openland_evenness_time$gam)$se[1]
+evenness_natural_openland_2017_low <- (summary(mod_natural_openland_evenness_time$gam)$p.coef[2]+1.96*summary(mod_natural_openland_evenness_time$gam)$se[2])*2017 + summary(mod_natural_openland_evenness_time$gam)$p.coef[1]-1.96*summary(mod_natural_openland_evenness_time$gam)$se[1]
+
+### example 
+
+```
+
+### Plot results
+
+```{r}
+
+l_mod1 <- lmer(var_SFI~1+var_sfi+mean_sfi+(1+var_sfi+mean_sfi|Index), data=dd, REML = FALSE)
+summary(l_mod1)
+l_mod1_REML <- lmer(var_SFI~1+var_sfi+mean_sfi+(1+var_sfi+mean_sfi|Index), data=dd, REML = TRUE)
+summary(l_mod1_REML)
+
+mod_species_time <- gamm(nb_sp~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square, random = list(code_square=~1))
+
+dd <- na.omit(network_structure_square[,c("nb_sp","year","lon2","lat2","code_square")])
+p <- predict(mod_species_time, se.fit = TRUE)
+dd$pred <- p$fit
+dd$upr <- p$fit + (1.96 * p$se.fit)
+dd$lwr <- p$fit - (1.96 * p$se.fit)
+
+ggplot(dd,aes(x=year,y=pred)) + 
+  geom_point(alpha=0) + 
+  geom_abline(slope = summary(mod_species_time$gam)$p.coef[2], intercept = summary(mod_species_time$gam)$p.coef[1]) +
+  geom_curve(x=-2, xend=2,
+             y = (summary(mod_species_time$gam)$p.coef[2] + 1.96*summary(mod_species_time$gam)$se[2])*(-2) + summary(mod_species_time$gam)$p.coef[1] - 1.96*summary(mod_species_time$gam)$se[1],
+             yend = (summary(mod_species_time$gam)$p.coef[2] - 1.96*summary(mod_species_time$gam)$se[2])*2 + summary(mod_species_time$gam)$p.coef[1] - 1.96*summary(mod_species_time$gam)$se[1],
+             curvature=-0.1, col="black",linetype="dashed") +
+  geom_curve(x=-2, xend=2,
+             y = (summary(mod_species_time$gam)$p.coef[2] - 1.96*summary(mod_species_time$gam)$se[2])*(-2) + summary(mod_species_time$gam)$p.coef[1] + 1.96*summary(mod_species_time$gam)$se[1],
+             yend = (summary(mod_species_time$gam)$p.coef[2] + 1.96*summary(mod_species_time$gam)$se[2])*2 + summary(mod_species_time$gam)$p.coef[1] + 1.96*summary(mod_species_time$gam)$se[2],
+             curvature=0.1, col="black",linetype="dashed") +
+  geom_abline(slope = summary(mod_farmland_species_time$gam)$p.coef[2], intercept = summary(mod_farmland_species_time$gam)$p.coef[1], col="#f5b041") +
+  geom_abline(slope = summary(mod_forest_species_time$gam)$p.coef[2], intercept = summary(mod_forest_species_time$gam)$p.coef[1], col="#52be80") +
+  geom_abline(slope = summary(mod_natural_openland_species_time$gam)$p.coef[2], intercept = summary(mod_natural_openland_species_time$gam)$p.coef[1], col="#2C65FD") +
+  geom_abline(slope = summary(mod_urban_species_time$gam)$p.coef[2], intercept = summary(mod_urban_species_time$gam)$p.coef[1], col="#FF4001") +
+  theme(legend.position="bottom", legend.direction = "horizontal") +
+  xlab("Mean of SFI in index species pool") + ylab("Variance between clusters expalined by SFI") + ylim(c(25,35)) +
+  theme_modern()
+
+```
+
+
+Function to check model assumptions (modified from `m-clark/visibly::plot_gam_check`)
+
+```{r}
+
+#mod_species_time <- gamm(nb_sp~year+te(lon2,lat2,bs="tp",k=3), data=network_structure_square, random = list(habitat=~ 1+year|habitat,code_square=~1))
+
+dd <- na.omit(network_structure_square[,c("nb_sp","year","lon2","lat2","code_square","habitat")])
+dd$pred <- predict(mod_species_time)
+
+ggplot(dd,aes(x=year,y=pred,colour=habitat, group=habitat)) + 
+  geom_point() + #scale_color_manual(values=c("FaBI"="#f5b041","FoBI"="#52be80")) + 
+  geom_abline(slope = summary(mod_species_time$gam)$p.coef[2], intercept = summary(mod_species_time$gam)$p.coef[1]) +
+  geom_curve(x=-2, xend=2,
+             y = (summary(mod_species_time$gam)$p.coef[2] + 1.96*summary(mod_species_time$gam)$se[2])*(-2) + summary(mod_species_time$gam)$p.coef[1] - 1.96*summary(mod_species_time$gam)$se[1],
+             yend = (summary(mod_species_time$gam)$p.coef[2] - 1.96*summary(mod_species_time$gam)$se[2])*2 + summary(mod_species_time$gam)$p.coef[1] - 1.96*summary(mod_species_time$gam)$se[1],
+             curvature=-0.1, col="black",linetype="dashed") +
+  geom_curve(x=-2, xend=2,
+             y = (summary(mod_species_time$gam)$p.coef[2] - 1.96*summary(mod_species_time$gam)$se[2])*(-2) + summary(mod_species_time$gam)$p.coef[1] + 1.96*summary(mod_species_time$gam)$se[1],
+             yend = (summary(mod_species_time$gam)$p.coef[2] + 1.96*summary(mod_species_time$gam)$se[2])*2 + summary(mod_species_time$gam)$p.coef[1] + 1.96*summary(mod_species_time$gam)$se[2],
+             curvature=0.1, col="black",linetype="dashed") +
+  geom_abline(slope = summary(mod_species_time$gam)$p.coef[2] + ranef(mod_species_time$lme)$habitat[1,2], intercept = summary(mod_species_time$gam)$p.coef[1] + ranef(mod_species_time$lme)$habitat[1,1], col="#f5b041") +
+  #geom_abline(slope = summary(l_mod1)$coef[3,1] + ranef(l_mod1_REML)$Index[2,3], intercept = summary(l_mod1)$coef[1,1] + ranef(l_mod1_REML)$Index[2,1], col="#52be80") +
+  theme(legend.position="bottom", legend.direction = "horizontal") +
+  xlab("Mean of SFI in index species pool") + ylab("Variance between clusters expalined by SFI") +
+  theme_modern()
 
 
 
+library(egg)
+
+plot_gam_check_sr <- function(model){
+
+  resid <- residuals(model, type="deviance")
+  linpred <- napredict(model$na.action, model$linear.predictors)
+  y_name <- colnames(model$model)[1]
+  fits <-  predict(model, type = 'response')
+  
+  fit_dat <- tibble(
+    `fitted values` = fits,
+    residuals = resid,
+    `linear predictor` = linpred) %>%  bind_cols(model$model[, 1, drop=FALSE])
+  res_fit_plot <- ggplot(aes(x = `linear predictor`, y = residuals), data = fit_dat) +
+    geom_hline(yintercept = 0, alpha = .25,  color = '#ff5500') +
+    geom_point(alpha = .25, show.legend = FALSE) +
+    scale_size_continuous(range = c(1, 6), trans = 'exp') +
+    ylim(values = c(min(fit_dat$residuals) - sd(fit_dat$residuals), max(fit_dat$residuals) + sd(fit_dat$residuals))) +
+    theme_modern()
+  col_scale  = scale_color_viridis_d(end=.5)
+  fill_scale = scale_fill_viridis_d(end=.5)
+  names(fit_dat)[4] <-"response values"
+  
+  fit_plot <-
+    fit_dat %>%
+    dplyr::select(-residuals,-`linear predictor`) %>%
+    tidyr::pivot_longer(dplyr::everything(), names_to = 'var') %>%
+    ggplot(aes(x = value, fill = var, color = var)) +
+    geom_density(alpha = .25) +
+    col_scale+
+    fill_scale +
+    theme_modern() +
+    theme(
+      legend.title = element_blank(),
+      legend.key.size = unit(.005, 'npc'),
+      legend.text = element_text(margin = margin(l=3)),
+      legend.position = c(0.8,0.8)
+    )
+    
+  res_dens_plot <-
+    ggplot(aes(x = residuals), data=fit_dat) +
+    geom_density(color='#001959',
+                 fill='#001959',
+                 alpha=.25,
+                 show.legend = FALSE) +
+    theme_modern()
+    
+  qq_plot <-
+    ggplot(aes(sample = residuals), data=fit_dat) +
+    geom_qq_line(alpha=.25, color='#ff5500') +
+    geom_qq(alpha=.1) +
+    labs(y='sample', x='theoretical') +
+    theme_modern()
+    
+  plot_to_save<-ggarrange(qq_plot,res_fit_plot,res_dens_plot,fit_plot,ncol = 2)
+  
+  return(plot_to_save)
+}
 
 
+plot_gam_check_sr(mod_connectance_time$gam)
+
+plot_gam_check_sr(mod_modularity_time$gam)
+
+```
 
 
 Simulations from multiccm to build a simulated dataset with make_ccm_data()
