@@ -640,8 +640,8 @@ to_plot_functional_distance2 <- data.frame(tau=as.data.frame(qr_temp_asso_functi
                                   sd_value=max(abs(scale(as.data.frame(qr_temp_asso_functional_distance)$estimate, center=F)))/max(abs(as.data.frame(qr_temp_asso_functional_distance)$estimate))*as.data.frame(qr_temp_asso_functional_distance)$std.error)
 
 ggplot(droplevels(to_plot_functional_distance2), aes(x=tau, y=value))+
-  geom_point(size=0.5, alpha=0.5) +
-  geom_line(size = 0.51)+
+  geom_point(size=1, alpha=0.5) +
+  geom_line(size = 1)+
   geom_smooth(method='lm', formula= y ~ 0, colour="blue", se=FALSE, linetype="11", size=0.5)+
   labs(y="Quantile regression")+
   geom_ribbon(aes(ymin=value-sd_value*1.96,ymax=value+sd_value*1.96),alpha=0.25)+
@@ -678,8 +678,8 @@ to_plot_phylogenetic_distance2 <- data.frame(tau=as.data.frame(qr_temp_asso_phyl
                                   sd_value=max(abs(scale(as.data.frame(qr_temp_asso_phylogenetic_distance)$estimate, center=F)))/max(abs(as.data.frame(qr_temp_asso_phylogenetic_distance)$estimate))*as.data.frame(qr_temp_asso_phylogenetic_distance)$std.error)
 
 ggplot(droplevels(to_plot_phylogenetic_distance2), aes(x=tau, y=value))+
-  geom_point(size=0.5, alpha=0.5) +
-  geom_line(size = 0.51)+
+  geom_point(size=1, alpha=0.5) +
+  geom_line(size = 1)+
   geom_smooth(method='lm', formula= y ~ 0, colour="blue", se=FALSE, linetype="11", size=0.5)+
   labs(y="Quantile regression")+
   geom_ribbon(aes(ymin=value-sd_value*1.96,ymax=value+sd_value*1.96),alpha=0.25)+
@@ -716,8 +716,8 @@ to_plot_specialisation_distance2 <- data.frame(tau=as.data.frame(qr_temp_asso_sp
                                   sd_value=max(abs(scale(as.data.frame(qr_temp_asso_specialisation_distance)$estimate, center=F)))/max(abs(as.data.frame(qr_temp_asso_specialisation_distance)$estimate))*as.data.frame(qr_temp_asso_specialisation_distance)$std.error)
 
 ggplot(droplevels(to_plot_specialisation_distance2), aes(x=tau, y=value))+
-  geom_point(size=0.5, alpha=0.5) +
-  geom_line(size = 0.51)+
+  geom_point(size=1, alpha=0.5) +
+  geom_line(size = 1)+
   geom_smooth(method='lm', formula= y ~ 0, colour="blue", se=FALSE, linetype="11", size=0.5)+
   labs(y="Quantile regression")+
   geom_ribbon(aes(ymin=value-sd_value*1.96,ymax=value+sd_value*1.96),alpha=0.25)+
@@ -754,8 +754,8 @@ to_plot_niche_overlap_distance2 <- data.frame(tau=as.data.frame(qr_temp_asso_nic
                                   sd_value=max(abs(scale(as.data.frame(qr_temp_asso_niche_overlap_distance)$estimate, center=F)))/max(abs(as.data.frame(qr_temp_asso_niche_overlap_distance)$estimate))*as.data.frame(qr_temp_asso_niche_overlap_distance)$std.error)
 
 ggplot(droplevels(to_plot_niche_overlap_distance2), aes(x=tau, y=value))+
-  geom_point(size=0.5, alpha=0.5) +
-  geom_line(size = 0.51)+
+  geom_point(size=1, alpha=0.5) +
+  geom_line(size = 1)+
   geom_smooth(method='lm', formula= y ~ 0, colour="blue", se=FALSE, linetype="11", size=0.5)+
   labs(y="Quantile regression")+
   geom_ribbon(aes(ymin=value-sd_value*1.96,ymax=value+sd_value*1.96),alpha=0.25)+
@@ -829,11 +829,51 @@ data_interaction_possible <- readRDS("output/data_interaction_possible.rds")
 
 ```{r}
 
+library(boot)
+
 mod1 <- glm(obs_temp_asso ~ same_habitat + same_nest + same_food, data=data_interaction_possible, family = binomial)
 summary(mod1)
+glm.diag.plots(mod1)
 
-mod2 <- glm(obs_temp_asso ~ same_nest + same_food, data=data_interaction_possible[which(data_interaction_possible$same_habitat==1),], family = binomial)
+boxLabels <- c("Similar habitat","Similar nest type","Similar diet")
+df <- data.frame(yAxis = length(boxLabels):1, 
+                 boxOdds = exp(coef(mod1)[-1]), 
+                 boxCILow = exp(coef(mod1)[-1]-1.96*summary(mod1)$coefficients[-1,2]), 
+                 boxCIHigh = exp(coef(mod1)[-1]+1.96*summary(mod1)$coefficients[-1,2])
+)
+
+ggplot(df, aes(x = boxOdds, y = boxLabels)) + 
+  geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") + 
+  geom_errorbarh(aes(xmax = boxCIHigh, xmin = boxCILow), size = .5, height = 
+                   .2, color = "gray50") +
+  geom_point(size = 3.5, shape=1) +
+  theme_modern()+
+  ylab("") +
+  xlab("Odds ratio") +
+  annotate(geom = "text", y =0.5, x = 1, 
+           label = paste0("McFadden R² = ", round(with(summary(mod1), 1 - deviance/null.deviance),2)), size = 3.5, hjust = -0.5)
+
+mod2 <- glm(obs_temp_asso ~ functional_distance + phylogenetic_distance + specialisation_distance + niche_overlap_distance, data=data_interaction_possible[data_interaction_possible$phylogenetic_distance>0,], family = binomial)
 summary(mod2)
+glm.diag.plots(mod2)
+
+boxLabels <- c("Functional distance","Phylogenetic distance","Specialisation distance","Niche overlap distance")
+df <- data.frame(yAxis = length(boxLabels):1, 
+                 boxOdds = exp(coef(mod2)[-1]), 
+                 boxCILow = exp(coef(mod2)[-1]-1.96*summary(mod2)$coefficients[-1,2]), 
+                 boxCIHigh = exp(coef(mod2)[-1]+1.96*summary(mod2)$coefficients[-1,2])
+)
+
+ggplot(df, aes(x = boxOdds, y = boxLabels)) + 
+  geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") + 
+  geom_errorbarh(aes(xmax = boxCIHigh, xmin = boxCILow), size = .5, height = 
+                   .2, color = "gray50") +
+  geom_point(size = 3.5) +
+  theme_modern()+
+  ylab("") +
+  xlab("Odds ratio") +
+  annotate(geom = "text", y =0.5, x = 1, 
+           label = paste0("McFadden R² = ", round(with(summary(mod2), 1 - deviance/null.deviance),2)), size = 3.5, hjust = -0.5)
 
 ```
 ### Function to calculate metrics of species association networks
