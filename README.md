@@ -2,7 +2,7 @@
 
 ## R
 
-The R scripts have been implemented on R version 3.4.4.
+The R scripts have been implemented on R version 4.2.2.
 
 ### Loading R packages
 
@@ -1477,6 +1477,22 @@ ggplot(new_dd,aes(x=year,y=pred)) +
   theme(legend.position="bottom", legend.direction = "horizontal") +
   xlab("Years") + ylab("Number of species by network") + 
   theme_modern()
+  
+
+ggplot(new_dd[which(new_dd$year %in% c(2001,2017)),],aes(x=as.factor(year),y=pred,group=year)) + 
+  geom_point(size=3) +
+  geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2, position=position_dodge(0.05), alpha=0.2) +
+  geom_point(size=3,data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],col = "#f5b041") +
+  geom_errorbar(data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#f5b041", alpha=0.2) +
+  geom_point(size=3,data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],col = "#52be80") +
+  geom_errorbar(data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#52be80", alpha=0.2) +
+  geom_point(size=3,data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],col = "#2C65FD") +
+  geom_errorbar(data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#2C65FD", alpha=0.2) +
+  geom_point(size=3,data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],col = "#FF4001") +
+  geom_errorbar(data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#FF4001", alpha=0.2) +
+  theme(legend.position="bottom", legend.direction = "horizontal") +
+  xlab("Years") + ylab("Number of species by network") + 
+  theme_modern()
 
 ```
 
@@ -1553,6 +1569,22 @@ ggplot(new_dd,aes(x=year,y=pred)) +
   theme(legend.position="bottom", legend.direction = "horizontal") +
   xlab("Years") + ylab("Number of observed associations by network\ncontrolling for network size") + 
   theme_modern()
+  
+  
+ggplot(new_dd[which(new_dd$year %in% c(2001,2017)),],aes(x=as.factor(year),y=pred,group=year)) + 
+  geom_point(size=3) +
+  geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2, position=position_dodge(0.05), alpha=0.2) +
+  geom_point(size=3,data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],col = "#f5b041") +
+  geom_errorbar(data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#f5b041", alpha=0.2) +
+  geom_point(size=3,data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],col = "#52be80") +
+  geom_errorbar(data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#52be80", alpha=0.2) +
+  geom_point(size=3,data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],col = "#2C65FD") +
+  geom_errorbar(data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#2C65FD", alpha=0.2) +
+  geom_point(size=3,data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],col = "#FF4001") +
+  geom_errorbar(data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#FF4001", alpha=0.2) +
+  theme(legend.position="bottom", legend.direction = "horizontal") +
+  xlab("Years") +  ylab("Number of observed associations by network\ncontrolling for network size") + 
+  theme_modern()
 
 ```
 
@@ -1628,6 +1660,21 @@ ggplot(new_dd,aes(x=year,y=pred)) +
   geom_line(data=new_dd_urban, col="#FF4001") +
   theme(legend.position="bottom", legend.direction = "horizontal") +
   xlab("Years") + ylab("Network connectance\ncontrolling for network size") + 
+  theme_modern()
+  
+ggplot(new_dd[which(new_dd$year %in% c(2001,2017)),],aes(x=as.factor(year),y=pred,group=year)) + 
+  geom_point(size=3,data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],col = "#f5b041") +
+  geom_errorbar(data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#f5b041", alpha=0.2) +
+  geom_point(size=3,data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],col = "#52be80") +
+  geom_errorbar(data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#52be80", alpha=0.2) +
+  geom_point(size=3,data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],col = "#2C65FD") +
+  geom_errorbar(data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#2C65FD", alpha=0.2) +
+  geom_point(size=3,data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],col = "#FF4001") +
+  geom_errorbar(data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#FF4001", alpha=0.2) +
+  geom_point(size=3) +
+  geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2, position=position_dodge(0.05), alpha=0.2) +
+  theme(legend.position="bottom", legend.direction = "horizontal") +
+  xlab("Years") +  ylab("Network connectance\ncontrolling for network size") + 
   theme_modern()
 
 ```
@@ -1706,6 +1753,22 @@ ggplot(new_dd,aes(x=year,y=pred)) +
   xlab("Years") + ylab("Network modularity\ncontrolling for connectance")  +
   theme_modern()
 
+ggplot(new_dd[which(new_dd$year %in% c(2001,2017)),],aes(x=as.factor(year),y=pred,group=year)) + 
+  geom_point(size=3) +
+  geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2, position=position_dodge(0.05), alpha=0.2) +
+  geom_point(size=3,data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],col = "#f5b041") +
+  geom_errorbar(data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#f5b041", alpha=0.2) +
+  geom_point(size=3,data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],col = "#52be80") +
+  geom_errorbar(data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#52be80", alpha=0.2) +
+  geom_point(size=3,data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],col = "#2C65FD") +
+  geom_errorbar(data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#2C65FD", alpha=0.2) +
+  geom_point(size=3,data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],col = "#FF4001") +
+  geom_errorbar(data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#FF4001", alpha=0.2) +
+  theme(legend.position="bottom", legend.direction = "horizontal") +
+  xlab("Years") +  ylab("Network modularity\ncontrolling for connectance") + 
+  theme_modern()
+
+
 ```
 
 ### Evenness
@@ -1781,6 +1844,22 @@ ggplot(new_dd,aes(x=year,y=pred)) +
   theme(legend.position="bottom", legend.direction = "horizontal") +
   xlab("Years") + ylab("Network eveness\ncontrolling for connectance") + 
   theme_modern()
+  
+  
+ggplot(new_dd[which(new_dd$year %in% c(2001,2017)),],aes(x=as.factor(year),y=pred,group=year)) + 
+  geom_point(size=3) +
+  geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2, position=position_dodge(0.05), alpha=0.2) +
+  geom_point(size=3,data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],col = "#f5b041") +
+  geom_errorbar(data=new_dd_farm[which(new_dd_farm$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#f5b041", alpha=0.2) +
+  geom_point(size=3,data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],col = "#52be80") +
+  geom_errorbar(data=new_dd_forest[which(new_dd_forest$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#52be80", alpha=0.2) +
+  geom_point(size=3,data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],col = "#2C65FD") +
+  geom_errorbar(data=new_dd_natural_open[which(new_dd_natural_open$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#2C65FD", alpha=0.2) +
+  geom_point(size=3,data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],col = "#FF4001") +
+  geom_errorbar(data=new_dd_urban[which(new_dd_urban$year %in% c(2001,2017)),],aes(ymin=lwr, ymax=upr),width=.2, position=position_dodge(0.05),col = "#FF4001", alpha=0.2) +
+  theme(legend.position="bottom", legend.direction = "horizontal") +
+  xlab("Years") +  ylab("Network eveness\ncontrolling for connectance") + 
+  theme_modern()
 
 ```
 
@@ -1793,6 +1872,12 @@ x <- droplevels(dataprp[which(dataprp$code_point==unique(dataprp$code_point)[10]
 x <- droplevels(dataprp[which(dataprp$code_square==31782 & dataprp$year == 2002),])
 #example for 2017
 x <- droplevels(dataprp[which(dataprp$code_square==641279 & dataprp$year == 2016),])
+# example no change in species but change in metrics
+x <- droplevels(dataprp[which(dataprp$code_square==690715 & dataprp$year == 2016),])
+# example no change in metric but change in species
+x <- droplevels(dataprp[which(dataprp$code_square==520389 & dataprp$year == 2007),])
+
+
 
 b <- levels(droplevels(x$code_sp))
 
@@ -1815,6 +1900,46 @@ ggnet2(net, node.size = 6, node.color = "black", edge.size = 0.5, edge.color = "
 
 ```
 
+### Correlation between metrics
+```{r}
+cormat <- na.omit(network_structure_square[,c("nb_association","nb_sp","connectance","modularity","evenness")])
+
+names(cormat) <- c("Number of associations", "Number of species","Connectance","Modularity","Evenness")
+
+cormat <- round(cor(cormat),2)
+
+# Get lower triangle of the correlation matrix
+get_lower_tri <- function(cormat){
+    cormat[upper.tri(cormat)] <- NA
+    return(cormat)
+}
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+    cormat[lower.tri(cormat)]<- NA
+    return(cormat)
+}
+upper_tri <- get_upper_tri(cormat)
+
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+
+ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.position = "none") +
+ coord_fixed()
+
+```
 
 
 Function to check model assumptions (modified from `m-clark/visibly::plot_gam_check`)
@@ -1885,6 +2010,12 @@ plot_gam_check_sr <- function(model){
 plot_gam_check_sr(mod_connectance_time$gam)
 
 plot_gam_check_sr(mod_modularity_time$gam)
+
+plot_gam_check_sr(mod_species_time$gam)
+
+plot_gam_check_sr(mod_asso_obs_time$gam)
+
+plot_gam_check_sr(mod_evenness_time$gam)
 
 ```
 
